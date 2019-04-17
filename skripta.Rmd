@@ -1,0 +1,91 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+Učitavanje podataka:
+```{r}
+podaci=read.csv("BlackFriday.csv")
+```
+
+Paketi koji se koriste:
+```{r}
+library(tidyverse)
+library(scales)
+library(arules)
+library(gridExtra)
+```
+
+Neka osnovna svojstva i prvih nekoliko podataka:
+```{r}
+summary(podaci)
+head(podaci)
+```
+
+Odvojena tablica kupaca, njigovih bračnih statusa i njihove potrošnje:
+```{r}
+bracni_status=as.factor(podaci$Marital_Status)
+user_id=podaci$User_ID
+potrosnja=podaci$Purchase
+tablica=data.frame(user_id,bracni_status,potrosnja)
+head(tablica)
+```
+
+Tablica broja kupaca u braku i kupaca koji nisu u braku:
+```{r}
+odnos_bracnih_statusa=tablica %>%
+  select(user_id,bracni_status) %>%
+  group_by(user_id) %>%
+  arrange(user_id) %>%
+  distinct()
+head(odnos_bracnih_statusa)
+summary(odnos_bracnih_statusa$bracni_status)
+```
+
+Stupčasti dijagram koji pokazuje odnos broja onih kupaca koji jesu u braku i onih koji nisu u braku:
+```{r}
+options(scipen=10000)
+plot_bracni_status=ggplot(data=tablica)+
+  geom_bar(mapping=aes(x=bracni_status,y=..count..,fill=bracni_status))+
+  labs(title="Bračni status kupaca")+
+  scale_fill_brewer(palette="Reds")
+print(plot_bracni_status)
+```
+
+Potrošnja po bračnom statusu:
+```{r}
+potrosnja_po_bs=tablica %>%
+  select(user_id,bracni_status,potrosnja) %>%
+  group_by(user_id) %>%
+  arrange(user_id) %>%
+  summarize(ukupna_potrosnja=sum(potrosnja))
+head(potrosnja_po_bs)
+```
+
+Prosječna potrošnja po bračnom statusu:
+```{r}
+spojeno=full_join(potrosnja_po_bs,odnos_bracnih_statusa,by="user_id")
+head(spojeno)
+prosjecna_potrosnja_po_bs=spojeno %>%
+  group_by(bracni_status) %>%
+  summarize(potrosnja=sum(as.numeric(ukupna_potrosnja)),
+             Count=n(),
+             Average=potrosnja/Count)
+head(prosjecna_potrosnja_po_bs)
+```
+
+Stupčasti dijagram prosječne potrošnje po bračnom statusu:
+```{r}
+plot_prosjecna_potrosnja_po_bs=ggplot(data=prosjecna_potrosnja_po_bs)+
+  geom_bar(mapping=aes(x=bracni_status,y=Average,fill=bracni_status),stat="identity")+
+  labs(title="Prosjecna potrosnja po bračnom statusu")+
+  scale_fill_brewer(palette="Reds")
+print(plot_prosjecna_potrosnja_po_bs)
+```
+
+Usporedba stupčastih dijagrama potrošnje i prosječne potrošnje po bračnom statusu
+```{r}
+grid.arrange(plot_bracni_status,plot_prosjecna_potrosnja_po_bs,ncol=2)
+```
+
+Iz briloženog možemo zaključiti da primjetno više kupuju osobe koje nisu u braku, ali je razlika u prosječnoj potrošnji osoba koje jesu u braku i osoba koje nisu u braju jako mala.
